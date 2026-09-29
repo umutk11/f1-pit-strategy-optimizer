@@ -1,0 +1,402 @@
+F1 PIT STRATEGY OPTIMIZER — V1 TAKİP LİSTESİ
+==============================================
+
+Proje hedefi
+------------
+20 araçlık, kuru hava koşullarındaki bir F1 yarışını tur/sector bazında
+simüle etmek. Sistem hedef sürücü için 1, 2 ve 3 pitli stratejileri dener;
+lastik aşınması, pit-loss, trafik, basit geçiş modeli ve Safety Car
+senaryolarını hesaba katar. Sonuçları timing table ve strateji karşılaştırması
+olarak gösterir.
+
+V1 sınırları (bilinçli olarak kapsam dışı)
+------------------------------------------
+[] Yağmur, intermediate ve wet lastikler
+[] Kırmızı bayrak, VSC ve mekanik arıza
+[] Gerçek zamanlı veri akışı
+[] Viraj/fizik/telemetri seviyesinde simülasyon
+[] Takım emirleri ve sürücü hataları
+
+Tamamlanma tanımı
+-----------------
+[] Bir yarış seçildiğinde 20 araç için yarış simülasyonu çalışıyor.
+[] Sistem 1/2/3 pitli stratejileri kendisi karşılaştırıyor.
+[] Hedef araç için en iyi strateji, beklenen süre ve risk gösteriliyor.
+[] Sıralama tablosu; lidere ve öndeki araca farkı gösteriyor.
+[] En az 1.000 Safety Car senaryosu üzerinde sonuç üretiliyor.
+[] Streamlit arayüzünden en az bir yarış senaryosu çalıştırılabiliyor.
+
+
+FAZ 0 — PROJEYİ HAZIRLA
+=======================
+
+[x] Yeni Git deposu oluştur.
+[x] Depo adını belirle: f1-pit-strategy-optimizer.
+[x] Python sürümünü seç (öneri: Python 3.11+).
+[x] Sanal ortam oluştur.
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+[x] requirements.txt oluştur.
+[x] İlk bağımlılıkları ekle: pandas, numpy, scikit-learn, matplotlib,
+    plotly, streamlit, pytest.
+[x] README.md oluştur.
+[x] README'ye tek cümlelik proje hedefini yaz.
+[x] .gitignore ekle: .venv, __pycache__, data/raw, .env.
+[x] Klasör yapısını oluştur:
+
+    data/raw/
+    data/processed/
+    notebooks/
+    src/
+    app/
+    tests/
+    outputs/
+
+[] İlk Git commit'ini at.
+git init
+git status
+git add .
+git commit -m "chore: initialize F1 strategy optimizer"
+
+Kontrol noktası:
+[] README, bağımlılıklar ve klasör yapısı bulunan temiz bir repo var.
+
+
+FAZ 1 — VERİYİ SEÇ VE İNCELE
+=============================
+
+Amaç: Önce yalnızca kuru hava ve tek bir geçmiş yarışla çalış.
+
+[] Başlangıç yarışı seç.
+[] Yarışın pist uzunluğu ve toplam tur sayısını kaydet.
+[] Yarıştaki 20 sürücünün başlangıç grid pozisyonlarını al.
+[] Tur/sector süreleri verisini al.
+[] Stint, lastik hamuru ve lastik yaşı verisini al.
+[] Pit-in ve pit-out turlarını işaretle.
+[] Safety Car dönemlerini işaretle.
+[] Hava koşullarını kontrol et.
+[] Yağmurlu turları V1 veri setinden çıkar veya yarış seçimini değiştir.
+[] DNF/DNS araçlarını ilk denemeden çıkar ya da sabit son pozisyonda tut.
+[] Ham veriyi data/raw/ içine kaydet.
+[] Veri sözlüğü oluştur: her kolonun anlamını yaz.
+
+EDA mikro adımları
+------------------
+[] notebooks/01_eda.ipynb oluştur.
+[] Eksik değer sayılarını çıkar.
+[] Negatif/sıfır/gerçekçi olmayan tur sürelerini kontrol et.
+[] Pit turlarının tur süresi dağılımını çiz.
+[] Normal turların tur süresi dağılımını çiz.
+[] Lastik hamuruna göre tur sürelerini karşılaştır.
+[] Lastik yaşı arttıkça tur süresinin değişimini çiz.
+[] Sürücü bazlı ortalama pace tablosu çıkar.
+[] Safety Car turlarını normal turlardan ayır.
+[] EDA bulgularını README'ye 3–5 madde olarak ekle.
+
+Kontrol noktası:
+[] Her araç için tur zamanı, lastik bilgisi ve pit olayları okunabiliyor.
+
+
+FAZ 2 — VERİ TEMİZLEME PIPELINE'I
+==================================
+
+[] src/data_processing.py oluştur.
+[] Ham veriyi okuyan fonksiyon yaz.
+[] Sürücü adlarını/kısaltmalarını standartlaştır.
+[] Zaman alanlarını saniye cinsine dönüştür.
+[] Pit-in ve pit-out turlarına pit flag ekle.
+[] Safety Car turlarına SC flag ekle.
+[] Her sürücü için stint numarası üret.
+[] Her stint için tyre_age hesapla.
+[] Her araç için race_time (kümülatif süre) hesapla.
+[] Her tur için sector bilgisi varsa sektöre ayır; yoksa önce tur bazlı devam et.
+[] Temizlenmiş veriyi data/processed/ içine kaydet.
+[] Pipeline için en az 3 unit test yaz.
+
+Kontrol noktası:
+[] Tek komutla ham veri, simülasyona uygun temiz tabloya dönüşüyor.
+
+
+FAZ 3 — TEMEL PACE VE LASTİK AŞINMASI MODELİ
+==============================================
+
+Amaç: Önce ML kullanmadan açıklanabilir bir baseline oluştur.
+
+[] src/pace_model.py oluştur.
+[] Her sürücü için clean-air base pace hesapla.
+[] Pit ve SC turlarını baseline hesaplamasından çıkar.
+[] Hamur bazlı başlangıç pace farkını hesapla.
+[] Hamur bazlı degradation rate hesapla.
+[] Baseline fonksiyonunu yaz:
+
+    predicted_lap_time = driver_base_pace
+                       + compound_offset
+                       + tyre_age * degradation_rate
+
+[] Tahmin edilen ve gerçek tur sürelerini karşılaştır.
+[] MAE hesapla.
+[] En kötü 10 tahmin örneğini incele.
+[] Model varsayımlarını README'ye yaz.
+
+Opsiyonel ML iyileştirmesi
+--------------------------
+[] Train/test ayrımını zaman bazlı yap.
+[] XGBoost veya HistGradientBoostingRegressor eğit.
+[] Özellikleri ekle: sürücü, takım, hamur, tyre_age, tur numarası, pist.
+[] Baseline ve ML MAE sonuçlarını karşılaştır.
+[] Daha iyi model varsa model dosyasını kaydet.
+[] Daha kötü model varsa baseline ile devam et ve sebebini not et.
+
+Kontrol noktası:
+[] Bir araca, lastiğe ve tyre_age değerine göre temiz hava tur süresi tahmin edilebiliyor.
+
+
+FAZ 4 — YARIŞ STATE VE TIMING SİSTEMİ
+======================================
+
+[] src/models.py oluştur.
+[] CarState veri sınıfını yaz.
+[] RaceState veri sınıfını yaz.
+[] CarState alanlarını ekle:
+    driver, team, lap, sector, total_time, distance_completed,
+    compound, tyre_age, pit_stops, status, position.
+[] RaceState alanlarını ekle:
+    current_lap, track_status, safety_car, total_laps, circuit_name.
+[] Yarış başlangıcında 20 CarState oluştur.
+[] Grid pozisyonuna göre başlangıç sırasını ata.
+[] Her tur sonunda distance_completed değerini güncelle.
+[] Araçları distance_completed ile sırala.
+[] Aynı mesafedeki araçlarda total_time ile sıralama yap.
+[] Position alanını güncelle.
+[] Her araç için gap_to_leader hesapla.
+[] Her araç için interval_to_ahead hesapla.
+[] Tur yiyen araç için +1 LAP gösterim kuralı ekle.
+[] Her tur sonunda timing snapshot kaydet.
+
+Timing snapshot şeması
+----------------------
+[] Şu alanları içeren bir DataFrame oluştur:
+    scenario_id, lap, sector, driver, position, total_time,
+    gap_to_leader, interval_to_ahead, compound, tyre_age,
+    status, safety_car.
+[] Snapshot'ı CSV olarak outputs/ altına yaz.
+[] Bir yarışta P1–P20 sıralamasını yazdırarak kontrol et.
+
+Kontrol noktası:
+[] Her tur sonunda 20 araçlık sıralama, lider farkı ve interval üretilebiliyor.
+
+
+FAZ 5 — PIT-STOP VE LASTİK STINT SİMÜLASYONU
+==============================================
+
+[] src/pit_model.py oluştur.
+[] Pist için normal pit-loss sabiti belirle.
+[] Stationary pit-stop süresi için küçük rastgelelik ekle.
+[] Pit-in turunu işaretle.
+[] Pit-stop sırasında aracın ilerlemesini durdur.
+[] Pit-loss değerini total_time değerine ekle.
+[] Yeni compound ata.
+[] tyre_age değerini sıfırla.
+[] pit_stops sayısını artır.
+[] Araç piste döndüğünde yeniden sıralama yap.
+[] Pit sonrası hangi araçların arasına döndüğünü logla.
+[] Soft/Medium/Hard için izin verilen maksimum stint uzunluklarını tanımla.
+[] Pit stratejisi geçerlilik kontrolü yaz.
+
+Kontrol noktası:
+[] Araç pite girdiğinde zaman kaybediyor, yeni lastikle doğru konumda geri dönüyor.
+
+
+FAZ 6 — TRAFİK, DRS VE BASİT GEÇİŞ MODELİ
+===========================================
+
+Başlangıç kuralı:
+[] Trafik eşiğini belirle (örnek: 1.2 saniye).
+[] DRS eşiğini belirle (örnek: 1.0 saniye).
+[] Her araç için önündeki aracı bul.
+[] Öndeki araçla zaman farkını hesapla.
+[] Takip eden araç temiz havada daha hızlı mı kontrol et.
+[] Yakın ve daha hızlıysa traffic_penalty uygula.
+[] Traffic penalty'yi ayrı bir alanda kaydet.
+[] DRS bölgesi için pace/atak avantajı ekle.
+[] Geçiş olasılığı fonksiyonunu yaz.
+[] Geçiş için girdiler ekle:
+    gap, pace advantage, tyre age difference, DRS, circuit overtake factor.
+[] Rastgele sayı ile geçiş başarılı mı belirle.
+[] Başarılı geçişte araçların sıralamasını güncelle.
+[] Başarısız geçişte takip eden araca trafik cezasını sürdür.
+[] Circuit overtake factor parametresini config dosyasına taşı.
+
+Test senaryoları
+---------------
+[] Hızlı araç, yavaş aracın 0.7 sn arkasında: trafik cezası görüyor.
+[] Hızlı araç DRS aralığında: geçiş olasılığı artıyor.
+[] Araç boş piste çıkıyor: trafik cezası sıfırlanıyor.
+[] Monaco-benzeri düşük geçiş faktöründe geçiş daha zor oluyor.
+
+Kontrol noktası:
+[] Pit sonrası trafiğe dönen aracın yarış süresine ölçülebilir maliyet ekleniyor.
+
+
+FAZ 7 — SAFETY CAR SENARYOLARI
+===============================
+
+[] src/safety_car.py oluştur.
+[] Pist için toplam SC olasılığı tanımla.
+[] Tur aralıklarına göre SC olasılık dağılımı tanımla.
+[] Her senaryoda SC çıkıp çıkmayacağını örnekle.
+[] SC çıkarsa başlangıç turunu örnekle.
+[] SC süresini tur cinsinden örnekle.
+[] SC altında tüm araçların tur sürelerini yavaşlat.
+[] SC altında araçlar arasındaki farkları küçült.
+[] SC altında pit-loss değerini azalt.
+[] Her araç için SC altında pit kararı kuralı ekle.
+[] SC bittiğinde normal pace modeline geri dön.
+[] Timing table'da SC durumunu göster.
+
+Kontrol noktası:
+[] Aynı strateji, SC olan ve olmayan iki senaryoda farklı sonuç üretiyor.
+
+
+FAZ 8 — STRATEJİ ÜRETİMİ VE OPTİMİZASYON
+=========================================
+
+[] src/strategy_generator.py oluştur.
+[] Geçerli 1 pit lastik dizilimlerini üret.
+[] Geçerli 2 pit lastik dizilimlerini üret.
+[] Geçerli 3 pit lastik dizilimlerini üret.
+[] Her dizilim için mantıklı pit pencereleri üret.
+[] Çok erken/geç pit turlarını ele.
+[] Her stratejiye benzersiz bir id ver.
+[] src/optimizer.py oluştur.
+[] Bir stratejiyi tek senaryoda çalıştıran fonksiyon yaz.
+[] Bir stratejiyi N senaryoda çalıştıran fonksiyon yaz.
+[] Her strateji için ortalama bitiş süresini hesapla.
+[] Her strateji için standart sapma / risk hesapla.
+[] Her strateji için ortalama trafik kaybını hesapla.
+[] Her strateji için ortalama bitiş pozisyonunu hesapla.
+[] Skor fonksiyonu yaz:
+    score = expected_race_time + risk_weight * risk.
+[] Tüm stratejileri skorlarına göre sırala.
+[] En iyi 5 stratejiyi çıktı olarak üret.
+[] Seçilen stratejinin neden seçildiğini metin halinde üret.
+
+Kontrol noktası:
+[] Kullanıcı pit sayısı seçmeden sistem 1/2/3 pit seçeneklerini karşılaştırıyor.
+
+
+FAZ 9 — MONTE CARLO ÇALIŞMASI
+==============================
+
+[] Rastgelelik için seed parametresi ekle.
+[] 10 senaryo ile debug modu oluştur.
+[] 100 senaryo ile hızlı kontrol çalıştır.
+[] 1.000 senaryo ile nihai V1 çalıştır.
+[] Senaryo ilerleme göstergesi ekle.
+[] Aynı seed ile aynı sonucun üretildiğini test et.
+[] Her senaryonun özet sonucunu kaydet.
+[] En iyi stratejinin kazanma/ilk 3/ilk 10 olasılığını hesapla.
+[] Stratejilerin sonuç dağılımlarını grafikte göster.
+
+Performans kontrolü
+-------------------
+[] 10 senaryonun çalışma süresini ölç.
+[] 1.000 senaryo tahmin süresini ölç.
+[] Gereksiz DataFrame işlemlerini döngü dışına taşı.
+[] Gerekirse numpy dizileri veya paralel çalışma ekle.
+[] Hedef süreyi README'ye yaz.
+
+Kontrol noktası:
+[] 1.000 senaryoda çalışan, tekrarlanabilir bir strateji karşılaştırması var.
+
+
+FAZ 10 — STREAMLIT DASHBOARD
+=============================
+
+[] app/streamlit_app.py oluştur.
+[] Uygulama başlığını ve kısa açıklamayı ekle.
+[] Pist seçici ekle.
+[] Hedef sürücü seçici ekle.
+[] Başlangıç lastiği seçici ekle.
+[] SC olasılığı için slider ekle.
+[] Simülasyon sayısı için slider ekle.
+[] "Simülasyonu çalıştır" butonu ekle.
+[] En iyi strateji kartını göster.
+[] İlk 5 strateji tablosunu göster.
+[] Final timing table'ı göster.
+[] Timing table'a compound ve status renkleri ekle.
+[] Hedef sürücünün gap_to_leader grafiğini ekle.
+[] Hedef sürücünün interval_to_ahead grafiğini ekle.
+[] Pozisyon değişim grafiğini ekle.
+[] Pit-stop/stint timeline grafiğini ekle.
+[] SC dönemlerini grafiklerde işaretle.
+[] Sonuçları CSV indirme butonu ekle.
+
+Kontrol noktası:
+[] Teknik olmayan biri dashboard'dan yarış senaryosu çalıştırıp sonucu anlayabiliyor.
+
+
+FAZ 11 — TEST, BACKTEST VE DOKÜMANTASYON
+=========================================
+
+Unit testler
+------------
+[] Lastik yaşı pit sonrası sıfırlanıyor.
+[] Pit-loss total_time değerine doğru ekleniyor.
+[] Sıralama doğru hesaplanıyor.
+[] Lider farkı negatif olamıyor.
+[] Interval doğru araçla hesaplanıyor.
+[] SC altında pit-loss normalden düşük.
+[] Geçiş başarılıysa araçların pozisyonu değişiyor.
+[] Aynı seed aynı simülasyon sonucunu veriyor.
+
+Backtest
+--------
+[] Bir geçmiş yarış seç.
+[] Gerçek pit stratejisini kaydet.
+[] Modelin önerdiği stratejiyi kaydet.
+[] Gerçek ve tahmini bitiş sırasını karşılaştır.
+[] Gerçek ve tahmini toplam süre farkını hesapla.
+[] En az iki farklı yarışta tekrarla.
+[] Başarısız tahminlerden üç örnek ve sebep yaz.
+
+README son hali
+---------------
+[] Problem tanımı.
+[] Mimari diyagramı.
+[] Veri kaynakları ve kullanım notları.
+[] Varsayımlar ve V1 sınırları.
+[] Kurulum komutları.
+[] Dashboard çalıştırma komutu.
+[] Örnek çıktı ekran görüntüsü/GIF.
+[] Model metrikleri.
+[] Backtest sonuçları.
+[] Gelecek geliştirmeler: V2 listesi.
+[] Lisans seçimi.
+
+
+V1 BİTİŞ KONTROL LİSTESİ
+=========================
+
+[] Kod düzenli klasör yapısında.
+[] README, sıfırdan kurulum için yeterli.
+[] Testler çalışıyor.
+[] Bir örnek yarış senaryosu tekrar üretilebiliyor.
+[] En iyi strateji otomatik seçiliyor.
+[] Timing table, lidere fark ve interval görüntüleniyor.
+[] Trafik ve SC etkisi strateji sonucunu değiştirebiliyor.
+[] Dashboard çalışıyor.
+[] GitHub'a temiz commit'lerle yüklendi.
+
+
+İLK ÇALIŞMA OTURUMU (önerilen sırayla)
+=======================================
+
+[] Repo + klasör yapısını oluştur.
+[] Tek kuru hava yarışı seç ve verisini indir.
+[] EDA notebook'unda lastik aşınmasını çiz.
+[] 20 araç için CarState oluştur.
+[] Pit-stop olmadan bir yarışı tur bazında simüle et.
+[] Final timing table'ı yazdır.
+
+Bu altı madde tamamlanınca "yarış motorunun iskeleti" çalışır.

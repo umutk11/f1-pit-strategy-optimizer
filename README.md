@@ -1,0 +1,1 @@
+A machine learning project about calculating optimal pit strategy.
