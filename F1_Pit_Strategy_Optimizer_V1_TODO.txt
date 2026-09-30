@@ -52,11 +52,10 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
     tests/
     outputs/
 
-[] İlk Git commit'ini at.
-git init
-git status
+[x] İlk Git commit'ini at.
 git add .
-git commit -m "chore: initialize F1 strategy optimizer"
+git commit -m "feat: add timing table calculation"
+git push
 
 Kontrol noktası:
 [] README, bağımlılıklar ve klasör yapısı bulunan temiz bir repo var.
