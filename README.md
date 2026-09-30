@@ -1,6 +1,6 @@
 # F1 Pit Strategy Optimizer
 
-An ML-informed race strategy simulator for Formula 1.
+A ML-informed race strategy simulator for Formula 1.
 
 This project explores how tyre degradation, pit-stop loss, traffic, and Safety Car scenarios affect race strategy decisions. Its goal is to simulate a full F1 grid and recommend the most effective one-stop, two-stop, or three-stop strategy for a target driver.
 
