@@ -54,7 +54,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 [x] İlk Git commit'ini at.
 git add .
-git commit -m "feat: add timing table calculation"
+git commit -m "commit"
 git push
 
 Kontrol noktası:
